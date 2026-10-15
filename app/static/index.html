@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golf Swing Coach</title>
+<style>
+  :root {
+    --canvas: #F3F5F1;
+    --surface: #FFFFFF;
+    --ink: #17201B;
+    --muted: #5D6A62;
+    --line: #D9DFD9;
+    --fairway: #1E6B3C;
+    --fairway-ink: #FFFFFF;
+    --flag: #F2C230;
+    --bad: #B3261E;
+    --font: "Segoe UI Variable Text", "Segoe UI", "Avenir Next", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --canvas: #101613;
+      --surface: #18211C;
+      --ink: #E7EEE9;
+      --muted: #9AA9A0;
+      --line: #2A362F;
+      --fairway: #4FBF7A;
+      --fairway-ink: #0C1A11;
+      --flag: #F2C230;
+      --bad: #F2867C;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: var(--canvas);
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 28px; font-weight: 650; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); margin-top: 4px; max-width: 60ch; }
+
+  form {
+    margin-top: 24px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 20px 28px;
+  }
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  .field > span, legend { font-size: 13px; font-weight: 600; color: var(--muted); }
+  fieldset { border: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .choices { display: flex; flex-wrap: wrap; gap: 6px; }
+  .choices input { position: absolute; opacity: 0; pointer-events: none; }
+  .choices label {
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .choices input:checked + label { background: var(--fairway); border-color: var(--fairway); color: var(--fairway-ink); }
+  .choices input:focus-visible + label { outline: 2px solid var(--flag); outline-offset: 2px; }
+
+  .drop {
+    border: 1.5px dashed var(--line);
+    border-radius: 8px;
+    min-height: 168px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 16px;
+    cursor: pointer;
+    color: var(--muted);
+    position: relative;
+    overflow: hidden;
+  }
+  .drop.over { border-color: var(--fairway); }
+  .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop:focus-within { outline: 2px solid var(--flag); outline-offset: 2px; }
+  .drop video, .drop img { max-width: 100%; max-height: 220px; border-radius: 6px; display: block; }
+  .drop strong { color: var(--ink); font-weight: 600; display: block; }
+  .filename { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+  textarea {
+    font: inherit;
+    color: inherit;
+    background: var(--canvas);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    min-height: 72px;
+    resize: vertical;
+  }
+  textarea:focus-visible, button:focus-visible { outline: 2px solid var(--flag); outline-offset: 2px; }
+  .actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; }
+  button {
+    font: inherit;
+    font-weight: 600;
+    background: var(--fairway);
+    color: var(--fairway-ink);
+    border: 0;
+    border-radius: 8px;
+    padding: 10px 22px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .status { color: var(--muted); font-size: 14px; }
+  .status.error { color: var(--bad); }
+
+  /* Results */
+  #results { margin-top: 32px; display: none; }
+  .filmstrip {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(140px, 1fr);
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+  .frame {
+    background: var(--surface);
+    border: 2px solid transparent;
+    border-radius: 8px;
+    padding: 4px;
+    transition: border-color 0.2s;
+  }
+  .frame.lit { border-color: var(--flag); }
+  .frame img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 5px; display: block; background: var(--line); }
+  .frame figcaption { font-size: 12px; color: var(--muted); padding: 4px 2px 0; font-variant-numeric: tabular-nums; }
+
+  .summary { margin-top: 20px; max-width: 70ch; }
+
+  .scorecard { margin-top: 20px; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .scorecard th, .scorecard td { padding: 8px 18px; text-align: center; border-left: 1px solid var(--line); }
+  .scorecard th:first-child, .scorecard td:first-child { border-left: 0; }
+  .scorecard th { font-size: 12px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--line); }
+  .scorecard td { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+  .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 28px; }
+  h2 { font-size: 17px; font-weight: 650; margin-bottom: 10px; }
+  .notes { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .notes li { display: flex; gap: 10px; align-items: baseline; }
+  .notes p { flex: 1; }
+  .frame-link {
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    background: none;
+    color: var(--fairway);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 1px 9px;
+    white-space: nowrap;
+  }
+  .block + .block { margin-top: 24px; }
+  .drill + .drill { margin-top: 12px; }
+  .drill h3 { font-size: 15px; font-weight: 600; }
+  .drill p { color: var(--muted); }
+  .tip { margin-top: 28px; border-left: 4px solid var(--flag); padding: 10px 16px; background: var(--surface); border-radius: 0 8px 8px 0; max-width: 75ch; }
+  .tip h2 { margin-bottom: 4px; }
+
+  @media (max-width: 760px) {
+    form, .columns { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .frame { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Golf Swing Coach</h1>
+  <p class="lede">Upload a clip of one swing. You'll get scores, what's working, what to fix, and drills to practise.</p>
+
+  <form id="form">
+    <div class="field">
+      <span>Your swing</span>
+      <div class="drop" id="drop">
+        <input type="file" id="file" name="file" accept="video/*,image/*" aria-label="Choose a swing video or photo">
+        <div id="dropContent">
+          <strong>Choose a video or photo</strong>
+          or drag it here. MP4, MOV, JPG or PNG, up to 100 MB.
+          <div class="filename">Film face-on or down-the-line with your whole body in frame.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <fieldset>
+        <legend>Club</legend>
+        <div class="choices">
+          <input type="radio" name="swing_type" id="st-driver" value="Driver" checked><label for="st-driver">Driver</label>
+          <input type="radio" name="swing_type" id="st-iron" value="Iron"><label for="st-iron">Iron</label>
+          <input type="radio" name="swing_type" id="st-wedge" value="Wedge"><label for="st-wedge">Wedge</label>
+          <input type="radio" name="swing_type" id="st-chip" value="Chip"><label for="st-chip">Chip</label>
+          <input type="radio" name="swing_type" id="st-putt" value="Putting"><label for="st-putt">Putting</label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Your level</legend>
+        <div class="choices">
+          <input type="radio" name="skill_level" id="sl-b" value="Beginner" checked><label for="sl-b">Beginner</label>
+          <input type="radio" name="skill_level" id="sl-i" value="Intermediate"><label for="sl-i">Intermediate</label>
+          <input type="radio" name="skill_level" id="sl-a" value="Advanced"><label for="sl-a">Advanced</label>
+        </div>
+      </fieldset>
+      <label class="field">
+        <span>Anything you want the coach to look at? (optional)</span>
+        <textarea name="concerns" maxlength="500" placeholder="I slice my driver and lose balance at the finish."></textarea>
+      </label>
+    </div>
+
+    <div class="actions">
+      <button type="submit" id="submit" disabled>Analyse swing</button>
+      <span class="status" id="status" role="status" aria-live="polite"></span>
+    </div>
+  </form>
+
+  <section id="results" aria-live="polite">
+    <div class="filmstrip" id="filmstrip"></div>
+    <p class="summary" id="summary"></p>
+    <table class="scorecard">
+      <thead><tr><th scope="col">Overall</th><th scope="col">Technique</th><th scope="col">Consistency</th></tr></thead>
+      <tbody><tr><td id="sOverall"></td><td id="sTechnique"></td><td id="sConsistency"></td></tr></tbody>
+    </table>
+    <div class="columns">
+      <div>
+        <div class="block"><h2>What's working</h2><ul class="notes" id="strengths"></ul></div>
+        <div class="block"><h2>What to fix</h2><ul class="notes" id="improvements"></ul></div>
+      </div>
+      <div><h2>Drills</h2><div id="drills"></div></div>
+    </div>
+    <div class="tip"><h2>Work on this first</h2><p id="tip"></p></div>
+  </section>
+</main>
+
+<script>
+  const form = document.getElementById('form');
+  const fileInput = document.getElementById('file');
+  const drop = document.getElementById('drop');
+  const dropContent = document.getElementById('dropContent');
+  const submit = document.getElementById('submit');
+  const statusEl = document.getElementById('status');
+  const results = document.getElementById('results');
+
+  function setStatus(text, isError = false) {
+    statusEl.textContent = text;
+    statusEl.classList.toggle('error', isError);
+  }
+
+  function showPreview(file) {
+    const url = URL.createObjectURL(file);
+    dropContent.replaceChildren();
+    const media = document.createElement(file.type.startsWith('video/') ? 'video' : 'img');
+    media.src = url;
+    if (media.tagName === 'VIDEO') { media.muted = true; media.controls = true; media.playsInline = true; }
+    else { media.alt = 'Selected swing photo'; }
+    const name = document.createElement('div');
+    name.className = 'filename';
+    name.textContent = file.name + ' — choose again to replace';
+    dropContent.append(media, name);
+    submit.disabled = false;
+    setStatus('');
+  }
+
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) showPreview(fileInput.files[0]); });
+  ['dragenter', 'dragover'].forEach(e => drop.addEventListener(e, () => drop.classList.add('over')));
+  ['dragleave', 'drop'].forEach(e => drop.addEventListener(e, () => drop.classList.remove('over')));
+
+  function highlightFrame(n) {
+    document.querySelectorAll('.frame').forEach(f => f.classList.toggle('lit', Number(f.dataset.n) === n));
+    const target = document.querySelector('.frame[data-n="' + n + '"]');
+    if (target) target.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest', inline: 'center' });
+  }
+
+  function renderNotes(listId, notes) {
+    const ul = document.getElementById(listId);
+    ul.replaceChildren();
+    notes.forEach(note => {
+      const li = document.createElement('li');
+      const p = document.createElement('p');
+      p.textContent = note.text;
+      li.append(p);
+      if (note.frame) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'frame-link';
+        b.textContent = 'Frame ' + note.frame;
+        b.addEventListener('click', () => highlightFrame(note.frame));
+        li.append(b);
+      }
+      ul.append(li);
+    });
+  }
+
+  function render(data) {
+    const r = data.result;
+    const strip = document.getElementById('filmstrip');
+    strip.replaceChildren();
+    data.frames.forEach(f => {
+      const fig = document.createElement('figure');
+      fig.className = 'frame';
+      fig.dataset.n = f.number;
+      const img = document.createElement('img');
+      img.src = f.thumbnail;
+      img.alt = 'Swing frame ' + f.number;
+      const cap = document.createElement('figcaption');
+      cap.textContent = 'Frame ' + f.number + (f.time_s !== null ? ' · ' + f.time_s.toFixed(2) + ' s' : '');
+      fig.append(img, cap);
+      strip.append(fig);
+    });
+
+    document.getElementById('summary').textContent = r.summary;
+    document.getElementById('sOverall').textContent = r.scores.overall;
+    document.getElementById('sTechnique').textContent = r.scores.technique;
+    document.getElementById('sConsistency').textContent = r.scores.consistency;
+    renderNotes('strengths', r.strengths);
+    renderNotes('improvements', r.improvements);
+
+    const drills = document.getElementById('drills');
+    drills.replaceChildren();
+    r.drills.forEach(d => {
+      const div = document.createElement('div');
+      div.className = 'drill';
+      const h = document.createElement('h3'); h.textContent = d.name;
+      const p = document.createElement('p'); p.textContent = d.description;
+      div.append(h, p);
+      drills.append(div);
+    });
+    document.getElementById('tip').textContent = r.main_tip;
+    results.style.display = 'block';
+    results.scrollIntoView({ behavior: 'auto', block: 'start' });
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!fileInput.files[0]) return;
+    submit.disabled = true;
+    setStatus('Analysing your swing. This usually takes 15–40 seconds.');
+    try {
+      const res = await fetch('/api/golf-swing/analyze', { method: 'POST', body: new FormData(form) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.detail || ('The server returned ' + res.status + '.'));
+      render(body);
+      setStatus('Analysis ready.');
+    } catch (err) {
+      setStatus(err.message, true);
+    } finally {
+      submit.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
